@@ -1,6 +1,8 @@
 from tensorflow.keras.layers import (
     Layer, Conv2D, BatchNormalization, Dense
 )
+import tensorflow as tf
+import tensorflow.keras as keras
 
 
 # shared weight MLP implement by Conv2D
@@ -17,6 +19,8 @@ class SMLP(Layer):
         self.bn_momentum = bn_momentum
         self.conv = Conv2D(filters, kernel_size, strides, padding=padding, activation=activation, use_bias=not bn,
                            kernel_initializer=initializer)
+        if type(activation) == str:
+            self.activation = keras.activations.get(activation)
         if bn:
             self.bn = BatchNormalization(momentum=bn_momentum, fused=False)
 
@@ -38,6 +42,8 @@ class FC(Layer):
         self.bn = bn
         self.bn_momentum = bn_momentum
         self.dense = Dense(units, activation=activation, use_bias=not bn)
+        if type(activation) == str:
+            self.activation = keras.activations.get(activation)
         if bn:
             self.bn = BatchNormalization(momentum=bn_momentum)
 
