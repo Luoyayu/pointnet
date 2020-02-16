@@ -39,7 +39,7 @@ def get_pointnet1_model(bn_momentum, bn: bool = True, **kwargs):
     hidden_256 = FC(256, 'relu', bn=bn, bn_momentum=bn_momentum)(hidden_512)
     hidden_256 = Dropout(rate=0.3)(hidden_256)
 
-    logits = FC(40, activation=None, bn=False, name='logits')(hidden_256)
+    logits = FC(40, None, bn=False, name='logits')(hidden_256)
 
     return keras.Model(inputs=pc, outputs=[logits, point_cloud_transformed], **kwargs)
 

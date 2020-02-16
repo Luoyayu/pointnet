@@ -11,9 +11,9 @@ class TNet(Layer):
         self.add_regularization = add_regularization
         self.bn_momentum = bn_momentum
         self.use_bias = use_bias
-        self.conv0 = SMLP(64, (1, 1), strides=(1, 1), bn_momentum=bn_momentum)
-        self.conv1 = SMLP(128, (1, 1), strides=(1, 1), bn_momentum=bn_momentum)
-        self.conv2 = SMLP(1024, (1, 1), strides=(1, 1), bn_momentum=bn_momentum)
+        self.conv0 = SMLP(64, (1, 1), (1, 1), 'relu', bn_momentum=bn_momentum)
+        self.conv1 = SMLP(128, (1, 1), (1, 1), 'relu', bn_momentum=bn_momentum)
+        self.conv2 = SMLP(1024, (1, 1), (1, 1), 'relu', bn_momentum=bn_momentum)
         self.fc0 = FC(512, activation='relu', bn=True, bn_momentum=bn_momentum)
         self.fc1 = FC(256, activation='relu', bn=True, bn_momentum=bn_momentum)
 

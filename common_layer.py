@@ -7,7 +7,7 @@ import tensorflow.keras as keras
 
 # shared weight MLP implement by Conv2D
 class SMLP(Layer):
-    def __init__(self, filters, kernel_size=(1, 1), strides=(1, 1), padding='valid', activation=None,
+    def __init__(self, filters, kernel_size=(1, 1), strides=(1, 1), activation=None, padding='valid',
                  bn=True, bn_momentum=0.99, initializer='glorot_normal', **kwargs):
         super(SMLP, self).__init__(**kwargs)
         self.filters = filters
