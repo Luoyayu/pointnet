@@ -1,11 +1,8 @@
 import tensorflow as tf
 import numpy as np
-from tensorflow.keras.layers import (
-    Layer,
-    BatchNormalization,
-    Conv2D,
-    Dense,
-)
+from tensorflow.keras.layers import Layer
+
+from common_layer import SMLP, FC
 
 
 class TNet(Layer):
