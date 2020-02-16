@@ -37,7 +37,7 @@ class PointNet_SA(Layer):
         for i, _ in enumerate(self.radius):
             mlps = []
             for filter in self.filters[i]:
-                mlps.append(SMLP(filter, activation=self.activation, apply_bn=self.bn, bn_momentum=self.bn_momentum,
+                mlps.append(SMLP(filter, activation=self.activation, bn=self.bn, bn_momentum=self.bn_momentum,
                                  initializer=self.initializer))
             self.mlps.append(mlps)
         super(PointNet_SA, self).build(input_shape)
