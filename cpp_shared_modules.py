@@ -1,9 +1,9 @@
 import tensorflow as tf
 from tensorflow.python.framework import ops
 
-sampling_module = tf.load_op_library('tf_ops/tf_sampling_so.so')
-grouping_module = tf.load_op_library('tf_ops/tf_grouping_so.so')
-interpolate_module = tf.load_op_library('tf_ops/tf_interpolate_so.so')
+sampling_module = tf.load_op_library('pointnet/tf_ops/tf_sampling_so.so')
+grouping_module = tf.load_op_library('pointnet/tf_ops/tf_grouping_so.so')
+interpolate_module = tf.load_op_library('pointnet/tf_ops/tf_interpolate_so.so')
 
 
 def prob_sample(inp, inpr):

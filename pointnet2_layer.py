@@ -50,14 +50,11 @@ class PointNet_SA(Layer):
         super(PointNet_SA, self).build(input_shape)
 
     @tf.function
-    def call(self, inputs, xyz, training=None, **kwargs):
+    def call(self, xyz, points, training=None, **kwargs):
         if self.mode == 'ssg':
             new_xyz, new_points = \
-                sample_and_group_all(xyz, inputs, self.use_xyz) if self.group_all else \
-                    sample_and_group(self.num_point, self.radius, self.samples, xyz, inputs, self.use_xyz)
-            print('new_xyz.shape=', new_xyz.shape)
-            print('new_points.shape=', new_points.shape)
-
+                sample_and_group_all(xyz, points, self.use_xyz) if self.group_all else \
+                    sample_and_group(self.num_point, self.radius, self.samples, xyz, points, self.use_xyz)
             for mlp in self.mlps:
                 new_points = mlp(new_points, training=training)
             new_points = tf.math.reduce_max(new_points, 2, keepdims=True)
@@ -71,8 +68,8 @@ class PointNet_SA(Layer):
                 idx, pts_cnt = query_ball_point(r, sample, xyz, new_xyz)
                 grouped_xyz = group_point(xyz, idx)
                 grouped_xyz -= tf.tile(tf.expand_dims(new_xyz, 2), [1, 1, sample, 1])
-                if inputs is not None:
-                    grouped_points = group_point(inputs, idx)
+                if points is not None:
+                    grouped_points = group_point(points, idx)
                     if self.use_xyz:
                         grouped_points = tf.concat([grouped_points, grouped_xyz], axis=-1)
                 else:
