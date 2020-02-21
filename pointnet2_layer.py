@@ -16,8 +16,7 @@ from cpp_shared_modules import (
 
 class PointNet_SA(Layer):
     def __init__(self, num_points, radius, samples, filters: list, use_xyz: bool = True,
-                 activation='relu', bn=True, bn_momentum=0.99, mode: str = 'basic', group_all=False,
-                 initializer='glorot_normal', **kwargs):
+                 activation='relu', bn=True, bn_momentum=0.99, mode: str = 'basic', group_all=False, **kwargs):
         super().__init__(**kwargs)
         self.num_point = num_points
         self.radius = radius
@@ -30,23 +29,20 @@ class PointNet_SA(Layer):
         self.mode = mode
         self.mlps = []  # smlp list [[], [], []] or []
         self.group_all = group_all
-        self.initializer = initializer
         if mode not in ['ssg', 'msg']:
-            NotImplementedError("mode must 'ssg' or 'msg'")
+            NotImplementedError("mode must be 'ssg' or 'msg'")
 
     @tf.function
     def build(self, input_shape):
         if self.mode == 'ssg':
             for i, filter in enumerate(self.filters):
                 self.mlps.append(
-                    SMLP(filter, activation=self.activation, bn=self.bn, bn_momentum=self.bn_momentum,
-                         initializer=self.initializer))
+                    SMLP(filter, activation=self.activation, bn=self.bn, bn_momentum=self.bn_momentum))
         else:
             for i, _ in enumerate(self.radius):
                 mlps = []
                 for filter in self.filters[i]:
-                    mlps.append(SMLP(filter, activation=self.activation, bn=self.bn, bn_momentum=self.bn_momentum,
-                                     initializer=self.initializer))
+                    mlps.append(SMLP(filter, activation=self.activation, bn=self.bn, bn_momentum=self.bn_momentum))
                 self.mlps.append(mlps)
         super(PointNet_SA, self).build(input_shape)
 
