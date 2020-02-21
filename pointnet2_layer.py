@@ -34,6 +34,7 @@ class PointNet_SA(Layer):
         if mode not in ['ssg', 'msg']:
             NotImplementedError("mode must 'ssg' or 'msg'")
 
+    @tf.function
     def build(self, input_shape):
         if self.mode == 'ssg':
             for i, filter in enumerate(self.filters):
