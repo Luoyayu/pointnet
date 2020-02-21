@@ -16,7 +16,7 @@ def get_pointnet2_model(bn: bool, bn_momentum, mode, **kwargs):
     filters = [64, 64, 128] if mode == 'ssg' else [[32, 32, 64], [64, 64, 128], [64, 96, 128]]
     xyz, points = PointNet_SA(
         num_points=num_points, radius=radius, samples=samples, filters=filters,
-        activation='relu', bn=bn, mode=mode, group_all=False)(point_cloud, None)
+        activation='relu', bn=bn, bn_momentum=bn_momentum, mode=mode, group_all=False)(point_cloud, None)
 
     num_points = 128 if mode == 'ssg' else 512
     radius = 0.4 if mode == 'ssg' else [0.2, 0.4, 0.8]
@@ -24,11 +24,11 @@ def get_pointnet2_model(bn: bool, bn_momentum, mode, **kwargs):
     filters = [128, 128, 256] if mode == 'ssg' else [[64, 64, 128], [128, 128, 256], [128, 128, 256]]
     xyz, points = PointNet_SA(
         num_points=num_points, radius=radius, samples=samples, filters=filters,
-        activation='relu', bn=bn, mode=mode, group_all=False)(xyz, points)
+        activation='relu', bn=bn, bn_momentum=bn_momentum, mode=mode, group_all=False)(xyz, points)
 
     xyz, points = PointNet_SA(
         num_points=None, radius=None, samples=None, filters=[256, 512, 1024],
-        activation='relu', bn=bn, group_all=True, mode='ssg')(xyz, points)
+        activation='relu', bn=bn, bn_momentum=bn_momentum, group_all=True, mode='ssg')(xyz, points)
 
     x = tf.reshape(points, (points.get_shape()[0], -1))
 
