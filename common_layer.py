@@ -4,6 +4,8 @@ from tensorflow.keras.layers import (
     Layer, Conv2D, BatchNormalization, Dense
 )
 
+BatchNormalization._USE_V2_BEHAVIOR = False
+
 
 # shared weight MLP implement by Conv2D
 class SMLP(Layer):
