@@ -35,7 +35,7 @@ class Config:
         self.TRAIN_FILES: list = []
         self.TEST_FILES: list = []
 
-        self.USE_V2 = False  # pointnet++
+        self.USE_V2 = True  # pointnet++
         self.USE_WANDB = False
 
     def load_dataset(self):
@@ -82,7 +82,7 @@ lr = tf.Variable(get_decayed_learning_rate(step=tf.constant(0)), trainable=False
 bn_momentum = tf.Variable(get_decayed_bn_momentum(step=tf.constant(0)), trainable=False)
 
 model = get_pointnet2_model(
-    bn=c.APPLY_BN, bn_momentum=bn_momentum, name='pointnet2_with_msg', mode='ssg') \
+    bn=c.APPLY_BN, bn_momentum=bn_momentum, name='pointnet2_with_ssg', mode='ssg') \
     if c.USE_V2 else \
     get_pointnet1_model(bn=c.APPLY_BN, bn_momentum=bn_momentum, name='pointnet1')
 

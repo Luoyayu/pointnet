@@ -27,20 +27,26 @@ class PointNet_SA(Layer):
         self.activation = activation
         self.bn = bn
         self.bn_momentum = bn_momentum
-        self.mode = mode  # basic, msg
+        self.mode = mode
         self.mlps = []  # smlp list [[], [], []] or []
         self.group_all = group_all
         self.initializer = initializer
-        if mode not in ['basic', 'msg']:
-            NotImplementedError("mode must 'basic' or 'msg'")
+        if mode not in ['ssg', 'msg']:
+            NotImplementedError("mode must 'ssg' or 'msg'")
 
     def build(self, input_shape):
-        for i, _ in enumerate(self.radius):
-            mlps = []
-            for filter in self.filters[i]:
-                mlps.append(SMLP(filter, activation=self.activation, bn=self.bn, bn_momentum=self.bn_momentum,
-                                 initializer=self.initializer))
-            self.mlps.append(mlps)
+        if self.mode == 'ssg':
+            for i, filter in enumerate(self.filters):
+                self.mlps.append(
+                    SMLP(filter, activation=self.activation, bn=self.bn, bn_momentum=self.bn_momentum,
+                         initializer=self.initializer))
+        else:
+            for i, _ in enumerate(self.radius):
+                mlps = []
+                for filter in self.filters[i]:
+                    mlps.append(SMLP(filter, activation=self.activation, bn=self.bn, bn_momentum=self.bn_momentum,
+                                     initializer=self.initializer))
+                self.mlps.append(mlps)
         super(PointNet_SA, self).build(input_shape)
 
     @tf.function
@@ -49,6 +55,9 @@ class PointNet_SA(Layer):
             new_xyz, new_points = \
                 sample_and_group_all(xyz, inputs, self.use_xyz) if self.group_all else \
                     sample_and_group(self.num_point, self.radius, self.samples, xyz, inputs, self.use_xyz)
+            print(f'new_xyz.shape={new_xyz.shape}')
+            print(f'new_points.shape={new_points.shape}')
+
             for mlp in self.mlps:
                 new_points = mlp(new_points, training=training)
             new_points = tf.math.reduce_max(new_points, 2, keepdims=True)
