@@ -4,6 +4,16 @@
  * All Rights Reserved. 2017. 
  */
 
+ // __global__ 申明 核函数， 调用 <<<grid, block>>>
+ // 函数的内置变量 threadIdx
+ // 一个kernel所启动的所有线程称为一个网格（grid）,同一个网格上的线程共享相同的全局内存空间
+ // 网格又可以分为很多线程块（block），一个线程块里面包含很多线程
+ // grid和block都是定义为dim3
+ // dim3 grid(3, 2); 定义 3x2的网格，即6个block
+ // dim3 block(5, 3); 每个 block 15个线程
+ // 一个线程需要两个内置的坐标变量（blockIdx，threadIdx）都是dim3类型变量
+ // 一个线程块上的线程是放在同一个流式多处理器（SM)上的
+ // 现代GPUs的线程块可支持的线程数可达1024个
 __global__ void cumsumKernel(int b,int n,const float * __restrict__ inp,float * __restrict__ out){
   const int BlockSize=2048;
   const int paddingLevel=5;

@@ -2,6 +2,7 @@ import tensorflow as tf
 from tensorflow.keras.layers import Layer
 from common_layer import SMLP
 from pointnet2_utils import sample_and_group_all, sample_and_group
+
 from cpp_shared_modules import (
     gather_point,
     farthest_point_sample,
@@ -10,8 +11,8 @@ from cpp_shared_modules import (
 )
 
 
-# basic, group-all
-# multi-scale grouping, MSG
+# single-scale grouping, SSG
+# multi-scale grouping,  MSG
 
 class PointNet_SA(Layer):
     def __init__(self, num_points, radius, samples, filters: list, use_xyz: bool = True,
@@ -26,8 +27,8 @@ class PointNet_SA(Layer):
         self.activation = activation
         self.bn = bn
         self.bn_momentum = bn_momentum
-        self.mode = mode  # basic, msg, mrg
-        self.mlps = []  # smlp list [[], [], []]
+        self.mode = mode  # basic, msg
+        self.mlps = []  # smlp list [[], [], []] or []
         self.group_all = group_all
         self.initializer = initializer
         if mode not in ['basic', 'msg']:
@@ -44,7 +45,7 @@ class PointNet_SA(Layer):
 
     @tf.function
     def call(self, inputs, xyz, training=None, **kwargs):
-        if self.mode == 'basic':  # sample and group all
+        if self.mode == 'ssg':
             new_xyz, new_points = \
                 sample_and_group_all(xyz, inputs, self.use_xyz) if self.group_all else \
                     sample_and_group(self.num_point, self.radius, self.samples, xyz, inputs, self.use_xyz)

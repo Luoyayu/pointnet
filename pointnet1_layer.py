@@ -1,5 +1,7 @@
 import tensorflow as tf
 import numpy as np
+import tensorflow.keras as keras
+from tensorflow.keras import backend as K
 from tensorflow.keras.layers import Layer
 
 from common_layer import SMLP, FC
@@ -61,3 +63,22 @@ class TNet(Layer):
             self.add_loss(1e-3 * reg_loss)
 
         return tf.matmul(pc, x)
+
+
+class UrsaMin(Layer):
+    def __init__(self, m: int):
+        super(UrsaMin, self).__init__()
+        self.m = m
+
+    def build(self, input_shape):
+        self.stars = self.add_weight(
+            shape=(self.m, input_shape[2]), initializer=keras.initializers.RandomUniform(minval=-1, maxval=1),
+            trainable=True, name='stars')
+
+    def call(self, inputs, **kwargs):
+        diff = inputs[:, None, :, :] - self.stars[None, :, None, :]
+        dists = K.min(tf.norm(diff, axis=3), axis=2)
+        return dists
+
+    def compute_output_shape(self, input_shape):
+        return input_shape[0], self.m

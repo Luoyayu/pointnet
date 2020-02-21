@@ -1,7 +1,7 @@
 import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras.layers import (Dropout, Input)
-from pointnet1_layer import TNet
+from pointnet1_layer import TNet, UrsaMin
 from common_layer import SMLP, FC
 
 
@@ -13,6 +13,7 @@ def get_pointnet1_model(bn_momentum, bn: bool = True, **kwargs):
 
     # Embed to 64-dim space (B x N x 3 -> B x N x 64)
     point_cloud_transformed = tf.expand_dims(point_cloud_transformed, axis=2)  # BxNx1x3 for weight shared MLP
+
     hidden_64 = SMLP(64, (1, 1), (1, 1), 'relu', bn=bn, bn_momentum=bn_momentum)(point_cloud_transformed)
     embed_64 = SMLP(64, (1, 1), (1, 1), 'relu', bn=bn, bn_momentum=bn_momentum)(hidden_64)
     embed_64 = tf.squeeze(embed_64, axis=2)  # BxNx64
@@ -41,7 +42,22 @@ def get_pointnet1_model(bn_momentum, bn: bool = True, **kwargs):
 
     logits = FC(40, None, bn=False, name='logits')(hidden_256)
 
-    return keras.Model(inputs=pc, outputs=[logits, point_cloud_transformed], **kwargs)
+    return keras.Model(inputs=pc, outputs=logits, **kwargs)
+    # return keras.Model(inputs=pc, outputs=[logits, point_cloud_transformed], **kwargs)
+
+
+def get_pointnet1_ursa_model(bn_momentum, bn: bool = True, **kwargs):
+    pc = Input(shape=(None, 3), dtype=tf.float32, name='point_cloud_input')  # BxNx3
+
+    x = UrsaMin(m=256)(pc)
+    x = keras.activations.relu(x)
+    x = keras.layers.BatchNormalization(momentum=bn_momentum)(x)
+    x = FC(512, activation='relu', bn=bn, bn_momentum=bn_momentum, name='fc_512')(x)
+    x = FC(256, activation='relu', bn=bn, bn_momentum=bn_momentum, name='fc_256')(x)
+    x = Dropout(rate=0.3)(x)
+    logits = FC(40, 'softmax')(x)
+
+    return keras.Model(inputs=pc, outputs=logits, **kwargs)
 
 
 if __name__ == '__main__':

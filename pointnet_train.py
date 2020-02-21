@@ -2,7 +2,7 @@ import os
 import sys
 import numpy as np
 import tensorflow as tf
-from pointnet1_model import get_pointnet1_model
+from pointnet1_model import get_pointnet1_model, get_pointnet1_ursa_model
 from pointnet2_model import get_pointnet2_model
 from poinrnet_dataset import load_hdf5, writer
 
@@ -81,8 +81,10 @@ def get_decayed_bn_momentum(step: tf.constant):
 lr = tf.Variable(get_decayed_learning_rate(step=tf.constant(0)), trainable=False)
 bn_momentum = tf.Variable(get_decayed_bn_momentum(step=tf.constant(0)), trainable=False)
 
-model = get_pointnet2_model(bn=c.APPLY_BN, bn_momentum=bn_momentum, name='pointnet2_with_msg') if c.USE_V2 else \
-    get_pointnet1_model(bn=c.APPLY_BN, bn_momentum=bn_momentum, name='pointnet_with_basic')
+model = get_pointnet2_model(
+    bn=c.APPLY_BN, bn_momentum=bn_momentum, name='pointnet2_with_msg', mode='ssg') \
+    if c.USE_V2 else \
+    get_pointnet1_model(bn=c.APPLY_BN, bn_momentum=bn_momentum, name='pointnet1')
 
 # model = get_pointnet1_model(bn=c.APPLY_BN, bn_momentum=bn_momentum, name='pointnet_with_basic')
 optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
@@ -94,7 +96,6 @@ def train_one_epoch():
     np.random.shuffle(train_file_idxs)
 
     for fidx in range(len(c.TRAIN_FILES)):
-
         print("<train in %s>" % c.TRAIN_FILES[train_file_idxs[fidx]])
         train_ds = load_hdf5(c.TRAIN_FILES[train_file_idxs[fidx]], c.NUM_POINT, c.BATCH_SIZE, training=True)
 
@@ -109,11 +110,10 @@ def train_one_epoch():
             pred = tf.math.argmax(train_logits, axis=1)
             label = tf.squeeze(label)
             correct = np.sum(pred == label, dtype=np.float32)
-            accuracy = tf.reduce_mean(correct)
 
             with writer.as_default():
                 tf.summary.scalar('train/loss', train_loss, step=optimizer.iterations)
-                tf.summary.scalar('train/acc', accuracy, step=optimizer.iterations)
+                tf.summary.scalar('train/acc', correct / float(c.BATCH_SIZE), step=optimizer.iterations)
                 writer.flush()
 
             total_correct += correct
@@ -172,8 +172,8 @@ def eval_one_epoch():
 @tf.function
 def train_step(point_cloud, labels):
     with tf.GradientTape() as tape:
-        logits, pt_cloud_transformed = model(point_cloud, training=True)
-        loss = tf.reduce_mean(classify_loss_fn(y_pred=logits, y_true=labels)) + sum(model.losses)
+        logits = model(point_cloud, training=True)
+        loss = tf.reduce_mean(classify_loss_fn(y_pred=logits, y_true=labels))  # + sum(model.losses)
 
     gradients = tape.gradient(loss, model.trainable_weights)
     optimizer.apply_gradients(zip(gradients, model.trainable_weights))
@@ -182,7 +182,7 @@ def train_step(point_cloud, labels):
 
 @tf.function
 def val_step(point_cloud):
-    logits, pt_cloud_transform = model(point_cloud, training=False)
+    logits = model(point_cloud, training=False)
     return logits
 
 
