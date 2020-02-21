@@ -55,8 +55,8 @@ class PointNet_SA(Layer):
             new_xyz, new_points = \
                 sample_and_group_all(xyz, inputs, self.use_xyz) if self.group_all else \
                     sample_and_group(self.num_point, self.radius, self.samples, xyz, inputs, self.use_xyz)
-            print(f'new_xyz.shape={new_xyz.shape}')
-            print(f'new_points.shape={new_points.shape}')
+            print('new_xyz.shape=', new_xyz.shape)
+            print('new_points.shape=', new_points.shape)
 
             for mlp in self.mlps:
                 new_points = mlp(new_points, training=training)
