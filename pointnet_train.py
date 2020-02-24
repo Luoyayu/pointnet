@@ -3,7 +3,7 @@ import sys
 import numpy as np
 import tensorflow as tf
 from pointnet1_model import get_pointnet1_model, get_pointnet1_ursa_model
-from pointnet2_model import get_pointnet2_model, CLS_SSG_Model
+from pointnet2_model import get_pointnet2_model, CLS_SSG_Model, CLS_MSG_Model
 from poinrnet_dataset import load_hdf5, writer
 
 tf.random.set_seed(0)
@@ -12,8 +12,8 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 class Config:
     def __init__(self):
-        self.MAX_EPOCH: int = 250
-        self.BATCH_SIZE = 32
+        self.MAX_EPOCH: int = 251
+        self.BATCH_SIZE = 16
         self.NUM_CLASSES = 40
         self.NUM_POINT = 1024
         self.MAX_NUM_POINT = 2048
@@ -82,7 +82,7 @@ def get_decayed_bn_momentum(step: tf.constant):
 lr = tf.Variable(get_decayed_learning_rate(step=tf.constant(0)), trainable=False)
 bn_momentum = tf.Variable(get_decayed_bn_momentum(step=tf.constant(0)), trainable=False)
 
-model = CLS_SSG_Model(
+model = CLS_MSG_Model(
     batch_size=c.BATCH_SIZE, bn=c.APPLY_BN, num_classes=c.NUM_CLASSES, num_points=c.NUM_POINT) \
     if c.USE_V2 else \
     get_pointnet1_model(bn=c.APPLY_BN, bn_momentum=bn_momentum, name='pointnet1')
@@ -201,7 +201,8 @@ def train():
         bn_momentum.assign(get_decayed_bn_momentum(step=optimizer.iterations))
         eval_one_epoch()
 
-        model.save_weights("models/model-" + str(epoch) + "-" + str(optimizer.iterations.numpy()), save_format='tf')
+        if 0 == (epoch + 1) % 10:
+            model.save_weights("models/model-" + str(epoch) + "-" + str(optimizer.iterations.numpy()), save_format='tf')
 
 
 c.load_dataset()
