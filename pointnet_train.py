@@ -3,7 +3,6 @@ import sys
 import numpy as np
 import tensorflow as tf
 from pointnet1_model import get_pointnet1_model, get_pointnet1_ursa_model
-from pointnet2_model import get_pointnet2_model, CLS_SSG_Model, CLS_MSG_Model
 from poinrnet_dataset import load_hdf5, writer
 
 tf.random.set_seed(0)
@@ -13,7 +12,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 class Config:
     def __init__(self):
         self.MAX_EPOCH: int = 251
-        self.BATCH_SIZE = 16
+        self.BATCH_SIZE = 64
         self.NUM_CLASSES = 40
         self.NUM_POINT = 1024
         self.MAX_NUM_POINT = 2048
@@ -24,19 +23,18 @@ class Config:
 
         self.OPTIMIZER: str = 'adam'
 
-        self.DECAY_STEP = 20000
+        self.DECAY_STEP = 7000
         self.DECAY_RATE = 0.7
 
         self.APPLY_BN = True
         self.BN_INIT_DECAY = 0.5
         self.BN_DECAY_DECAY_RATE = 0.5
         self.BN_DECAY_CLIP = 0.99
-        self.BN_DECAY_DECAY_STEP = 20000
+        self.BN_DECAY_DECAY_STEP = 7000
 
         self.TRAIN_FILES: list = []
         self.TEST_FILES: list = []
 
-        self.USE_V2 = True  # pointnet++
         self.USE_WANDB = False
 
     def load_dataset(self):
@@ -82,15 +80,7 @@ def get_decayed_bn_momentum(step: tf.constant):
 lr = tf.Variable(get_decayed_learning_rate(step=tf.constant(0)), trainable=False)
 bn_momentum = tf.Variable(get_decayed_bn_momentum(step=tf.constant(0)), trainable=False)
 
-model = CLS_MSG_Model(
-    batch_size=c.BATCH_SIZE, bn=c.APPLY_BN, num_classes=c.NUM_CLASSES, num_points=c.NUM_POINT) \
-    if c.USE_V2 else \
-    get_pointnet1_model(bn=c.APPLY_BN, bn_momentum=bn_momentum, name='pointnet1')
-
-model.build(input_shape=(c.BATCH_SIZE, c.NUM_POINT, 3))
-print(model.summary())
-
-# model = get_pointnet1_model(bn=c.APPLY_BN, bn_momentum=bn_momentum, name='pointnet_with_basic')
+model = get_pointnet1_model(bn=c.APPLY_BN, bn_momentum=bn_momentum, name='pointnet1')
 optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
 classify_loss_fn = tf.losses.SparseCategoricalCrossentropy(from_logits=True)
 
@@ -176,7 +166,7 @@ def eval_one_epoch():
 def train_step(point_cloud, labels):
     with tf.GradientTape() as tape:
         logits = model(point_cloud, training=True)
-        loss = tf.reduce_mean(classify_loss_fn(y_pred=logits, y_true=labels))  # + sum(model.losses)
+        loss = tf.reduce_mean(classify_loss_fn(y_pred=logits, y_true=labels)) + sum(model.losses)
 
     gradients = tape.gradient(loss, model.trainable_weights)
     optimizer.apply_gradients(zip(gradients, model.trainable_weights))
