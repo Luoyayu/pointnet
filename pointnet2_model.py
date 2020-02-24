@@ -44,9 +44,9 @@ class get_pointnet2_model(keras.Model):
 
         x = tf.reshape(points, (self.batch_size, -1))
 
-        hidden_512 = Dropout(
+        hidden_512 = Dropout(rate=0.3)(
             FC(512, 'relu', bn=self.bn, bn_momentum=self.bn_momentum, name='hidden_512')(x, training=training))
-        hidden_128 = Dropout(
+        hidden_128 = Dropout(rate=0.3)(
             FC(128, 'relu', bn=self.bn, bn_momentum=self.bn_momentum, name='hidden_128')(hidden_512, training=training))
         logits = FC(40, 'softmax', bn=False, name='output_logits')(hidden_128, training=training)
 
