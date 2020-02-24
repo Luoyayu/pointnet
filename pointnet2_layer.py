@@ -47,7 +47,6 @@ class PointNet_SA(keras.layers.Layer):
                 self.mlps.append(mlps)
         super(PointNet_SA, self).build(input_shape)
 
-    @tf.function
     def call(self, xyz, points, training=None, **kwargs):
         """
         :param xyz: BxAx3

@@ -25,7 +25,6 @@ class get_pointnet2_model(keras.Model):
 
         self.dense3 = Dense(40, 'softmax', name='logits')
 
-    @tf.function
     def call(self, point_cloud, training=True):
         print("point_cloud.shape=", point_cloud.shape)
         assert self.mode in ['ssg', 'msg']
@@ -59,7 +58,7 @@ class get_pointnet2_model(keras.Model):
             xyz, points, training=training)
 
         print(xyz.shape, points.shape)
-        
+
         net = tf.reshape(points, (self.batch_size, -1))
 
         net = self.dense1(net)

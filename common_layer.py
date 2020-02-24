@@ -4,8 +4,6 @@ from tensorflow.keras.layers import (
     Layer, Conv2D, BatchNormalization, Dense
 )
 
-BatchNormalization._USE_V2_BEHAVIOR = False
-
 
 # shared weight MLP implement by Conv2D
 class SMLP(Layer):
@@ -26,7 +24,6 @@ class SMLP(Layer):
         if bn:
             self.bn_fn = BatchNormalization(momentum=bn_momentum, fused=False)
 
-    @tf.function
     def call(self, x, training=None):
         assert training is not None
         x = self.conv(x)
@@ -88,7 +85,6 @@ class FC(Layer):
         if bn:
             self.bn = BatchNormalization(momentum=bn_momentum)
 
-    @tf.function
     def call(self, x, training=None):
         assert training is not None
         x = self.dense(x)

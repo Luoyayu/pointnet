@@ -7,6 +7,7 @@ from pointnet2_model import get_pointnet2_model
 from poinrnet_dataset import load_hdf5, writer
 
 tf.random.set_seed(0)
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 
 class Config:
@@ -173,7 +174,6 @@ def eval_one_epoch():
     print('val avg class acc', avg_class_acc)
 
 
-@tf.function
 def train_step(point_cloud, labels):
     with tf.GradientTape() as tape:
         logits = model(point_cloud, training=True)
@@ -184,7 +184,6 @@ def train_step(point_cloud, labels):
     return loss, logits
 
 
-@tf.function
 def val_step(point_cloud):
     logits = model(point_cloud, training=False)
     return logits

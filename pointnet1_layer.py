@@ -29,7 +29,6 @@ class TNet(Layer):
                 shape=(self.K, self.K), initializer=tf.zeros_initializer, trainable=True, name='tnet_b')
             self.b = tf.math.add(self.b, tf.constant(np.eye(self.K), dtype=tf.float32))
 
-    @tf.function
     def call(self, x, training=None):
         pc = x  # BxNxK
 
@@ -76,7 +75,6 @@ class UrsaMin(Layer):
             shape=(self.m, input_shape[2]), initializer=keras.initializers.RandomUniform(minval=-1, maxval=1),
             trainable=True, name='stars')
 
-    @tf.function
     def call(self, inputs, **kwargs):
         diff = inputs[:, None, :, :] - self.stars[None, :, None, :]
         dists = K.min(tf.norm(diff, axis=3), axis=2)
