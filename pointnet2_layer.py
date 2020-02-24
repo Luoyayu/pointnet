@@ -68,6 +68,7 @@ class PointNet_SA(Layer):
             for mlp in self.mlps:
                 new_points = mlp(new_points, training=training)
             new_points = tf.reduce_max(new_points, 2, keepdims=True, name='maxpool')
+
             return new_xyz, tf.squeeze(new_points, [2])
 
         elif self.mode == 'msg':

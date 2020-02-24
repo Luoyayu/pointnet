@@ -13,17 +13,17 @@ class get_pointnet2_model(keras.Model):
         self.bn_momentum = bn_momentum
         self.mode = mode
 
-        self.dense1 = Dense(512, 'relu')
+        self.dense1 = Dense(512, 'relu', name='hidden_512')
         if self.bn: self.bn_fc1 = BatchNormalization()
 
         self.dropout1 = Dropout(0.3)
 
-        self.dense2 = Dense(128, 'relu')
+        self.dense2 = Dense(128, 'relu', name='hidden_128')
         if self.bn: self.bn_fc2 = BatchNormalization()
 
         self.dropout2 = Dropout(0.3)
 
-        self.dense3 = Dense(40, 'softmax')
+        self.dense3 = Dense(40, 'softmax', name='logits')
 
     @tf.function
     def call(self, point_cloud, training=True):
@@ -40,6 +40,8 @@ class get_pointnet2_model(keras.Model):
             bn_momentum=self.bn_momentum, mode=self.mode, group_all=False, name='pointnet_sa_1')(
             point_cloud, None, training=training)
 
+        print(xyz.shape, points.shape)
+
         num_points = 128 if self.mode == 'ssg' else 512
         radius = 0.4 if self.mode == 'ssg' else [0.2, 0.4, 0.8]
         samples = 64 if self.mode == 'ssg' else [32, 64, 128]
@@ -49,11 +51,15 @@ class get_pointnet2_model(keras.Model):
             bn_momentum=self.bn_momentum, mode=self.mode, group_all=False, name='pointnet_sa_2')(
             xyz, points, training=training)
 
-        _, points = PointNet_SA(
+        print(xyz.shape, points.shape)
+
+        xyz, points = PointNet_SA(
             npoint=None, radius=None, nsample=None, filters=[256, 512, 1024], activation='relu', bn=self.bn,
             bn_momentum=self.bn_momentum, group_all=True, mode='ssg', name='pointnet_sa_3')(
             xyz, points, training=training)
 
+        print(xyz.shape, points.shape)
+        
         net = tf.reshape(points, (self.batch_size, -1))
 
         net = self.dense1(net)
