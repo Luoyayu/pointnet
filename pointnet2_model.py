@@ -26,7 +26,6 @@ class get_pointnet2_model(keras.Model):
         self.dense3 = Dense(40, 'softmax', name='logits')
 
     def call(self, point_cloud, training=True):
-        print("point_cloud.shape=", point_cloud.shape)
         assert self.mode in ['ssg', 'msg']
 
         # Hierarchical Point Set Group and Abstract Layer
