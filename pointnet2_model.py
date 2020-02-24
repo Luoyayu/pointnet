@@ -5,7 +5,7 @@ from pointnet2_layer import PointNet_SA
 from common_layer import FC
 
 
-def get_pointnet2_model(bn: bool, bn_momentum, mode, **kwargs):
+def get_pointnet2_model(batch_size: int, bn: bool, bn_momentum, mode, **kwargs):
     assert mode in ['ssg', 'msg']
     point_cloud = Input(shape=(None, 3), dtype=tf.float32, name='pt_cloud_input')  # BxNx3
 
@@ -30,7 +30,7 @@ def get_pointnet2_model(bn: bool, bn_momentum, mode, **kwargs):
         npoint=None, radius=None, nsample=None, filters=[256, 512, 1024], activation='relu', bn=bn,
         bn_momentum=bn_momentum, group_all=True, mode='ssg', name='pointnet_sa_3')(xyz, points)
 
-    x = tf.reshape(points, (points.get_shape()[0], -1))
+    x = tf.reshape(points, (batch_size, -1))
 
     hidden_512 = Dropout(FC(512, activation='relu', bn=bn, bn_momentum=bn_momentum, name='hidden_512')(x))
     hidden_128 = Dropout(FC(128, activation='relu', bn=bn, bn_momentum=bn_momentum, name='hidden_128')(hidden_512))

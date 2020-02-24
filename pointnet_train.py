@@ -81,8 +81,8 @@ def get_decayed_bn_momentum(step: tf.constant):
 lr = tf.Variable(get_decayed_learning_rate(step=tf.constant(0)), trainable=False)
 bn_momentum = tf.Variable(get_decayed_bn_momentum(step=tf.constant(0)), trainable=False)
 
-model = get_pointnet2_model(
-    bn=c.APPLY_BN, bn_momentum=bn_momentum, name='pointnet2_with_ssg', mode='ssg') \
+model = get_pointnet2_model(batch_size=c.BATCH_SIZE,
+                            bn=c.APPLY_BN, bn_momentum=bn_momentum, name='pointnet2_with_ssg', mode='ssg') \
     if c.USE_V2 else \
     get_pointnet1_model(bn=c.APPLY_BN, bn_momentum=bn_momentum, name='pointnet1')
 
