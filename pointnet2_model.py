@@ -1,6 +1,6 @@
 import tensorflow as tf
 import tensorflow.keras as keras
-from tensorflow.keras.layers import (Input, Dropout, Dense)
+from tensorflow.keras.layers import (Dropout, Dense, BatchNormalization)
 
 from pointnet2_layer import PointNet_SA
 
@@ -13,7 +13,20 @@ class get_pointnet2_model(keras.Model):
         self.bn_momentum = bn_momentum
         self.mode = mode
 
-    def call(self, point_cloud, training=True, mask=None):
+        self.dense1 = Dense(512, 'relu')
+        if self.bn: self.bn_fc1 = BatchNormalization()
+
+        self.dropout1 = Dropout(0.3)
+
+        self.dense2 = Dense(128, 'relu')
+        if self.bn: self.bn_fc2 = BatchNormalization()
+
+        self.dropout2 = Dropout(0.3)
+
+        self.dense3 = Dense(40, 'softmax')
+
+    @tf.function
+    def call(self, point_cloud, training=True):
         print("point_cloud.shape=", point_cloud.shape)
         assert self.mode in ['ssg', 'msg']
 
@@ -41,10 +54,15 @@ class get_pointnet2_model(keras.Model):
             bn_momentum=self.bn_momentum, group_all=True, mode='ssg', name='pointnet_sa_3')(
             xyz, points, training=training)
 
-        x = tf.reshape(points, (self.batch_size, -1))
+        net = tf.reshape(points, (self.batch_size, -1))
 
-        hidden_512 = Dropout(0.3)(Dense(512, 'relu')(x, training=training))
-        hidden_128 = Dropout(0.3)(Dense(128, 'relu')(hidden_512, training=training))
-        logits = Dense(40, 'softmax')(hidden_128, training=training)
+        net = self.dense1(net)
+        if self.bn: net = self.bn_fc1(net, training=training)
+        net = self.dropout1(net)
 
+        net = self.dense2(net)
+        if self.bn: net = self.bn_fc2(net, training=training)
+        net = self.dropout2(net)
+
+        logits = self.dense3(net)
         return logits
