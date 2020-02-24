@@ -1,9 +1,8 @@
 import tensorflow as tf
 import tensorflow.keras as keras
-from tensorflow.keras.layers import (Input, Dropout)
+from tensorflow.keras.layers import (Input, Dropout, Dense)
 
 from pointnet2_layer import PointNet_SA
-from common_layer import FC
 
 
 class get_pointnet2_model(keras.Model):
@@ -44,10 +43,8 @@ class get_pointnet2_model(keras.Model):
 
         x = tf.reshape(points, (self.batch_size, -1))
 
-        hidden_512 = Dropout(rate=0.3)(
-            FC(512, 'relu', bn=self.bn, bn_momentum=self.bn_momentum, name='hidden_512')(x, training=training))
-        hidden_128 = Dropout(rate=0.3)(
-            FC(128, 'relu', bn=self.bn, bn_momentum=self.bn_momentum, name='hidden_128')(hidden_512, training=training))
-        logits = FC(40, 'softmax', bn=False, name='output_logits')(hidden_128, training=training)
+        hidden_512 = Dropout(0.3)(Dense(512, 'relu')(x, training=training))
+        hidden_128 = Dropout(0.3)(Dense(128, 'relu')(hidden_512, training=training))
+        logits = Dense(40, 'softmax')(hidden_128, training=training)
 
         return logits
