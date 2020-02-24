@@ -3,7 +3,7 @@ import sys
 import numpy as np
 import tensorflow as tf
 from pointnet1_model import get_pointnet1_model, get_pointnet1_ursa_model
-from pointnet2_model import get_pointnet2_model
+from pointnet2_model import get_pointnet2_model, CLS_SSG_Model
 from poinrnet_dataset import load_hdf5, writer
 
 tf.random.set_seed(0)
@@ -24,14 +24,14 @@ class Config:
 
         self.OPTIMIZER: str = 'adam'
 
-        self.DECAY_STEP = 7000
+        self.DECAY_STEP = 20000
         self.DECAY_RATE = 0.7
 
         self.APPLY_BN = True
         self.BN_INIT_DECAY = 0.5
         self.BN_DECAY_DECAY_RATE = 0.5
         self.BN_DECAY_CLIP = 0.99
-        self.BN_DECAY_DECAY_STEP = 7000
+        self.BN_DECAY_DECAY_STEP = 20000
 
         self.TRAIN_FILES: list = []
         self.TEST_FILES: list = []
@@ -82,9 +82,8 @@ def get_decayed_bn_momentum(step: tf.constant):
 lr = tf.Variable(get_decayed_learning_rate(step=tf.constant(0)), trainable=False)
 bn_momentum = tf.Variable(get_decayed_bn_momentum(step=tf.constant(0)), trainable=False)
 
-model = get_pointnet2_model(
-    batch_size=c.BATCH_SIZE,
-    bn=c.APPLY_BN, bn_momentum=bn_momentum, name='pointnet2_with_ssg', mode='ssg') \
+model = CLS_SSG_Model(
+    batch_size=c.BATCH_SIZE, bn=c.APPLY_BN, num_classes=c.NUM_CLASSES, num_points=c.NUM_POINT) \
     if c.USE_V2 else \
     get_pointnet1_model(bn=c.APPLY_BN, bn_momentum=bn_momentum, name='pointnet1')
 
