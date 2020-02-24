@@ -8,13 +8,11 @@ from cpp_shared_modules import (
 
 def sample_and_group_all(xyz: tf.Tensor, points: tf.Tensor, use_xyz: bool = True):
     """
-
     :param xyz:     BxNx3
     :param points:  BxNxC abstracted local features
     :param use_xyz: if True concat XYZ with local point features
-    :return:
-        new_xyz: Bx1x3
-        new_points: Bx1xNx(C+3)
+    :return:new_xyz: Bx1x3
+            new_points: Bx1xNx(C+3)
     """
     batch_size, num_points, _ = xyz.get_shape().as_list()
     new_xyz = tf.zeros(shape=(batch_size, 1, 3), dtype=tf.float32)  # Bx1x3 (0,0,0)作为质心

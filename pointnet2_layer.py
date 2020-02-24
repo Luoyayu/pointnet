@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Layer
+from tensorflow import keras as keras
 from common_layer import Conv2d
 from pointnet2_utils import sample_and_group_all, sample_and_group
 
@@ -11,10 +11,7 @@ from cpp_shared_modules import (
 )
 
 
-# single-scale grouping, SSG
-# multi-scale grouping,  MSG
-
-class PointNet_SA(Layer):
+class PointNet_SA(keras.layers.Layer):
     def __init__(self, npoint, radius, nsample, filters: list, use_xyz: bool = True,
                  activation='relu', bn=True, bn_momentum=0.99, mode: str = 'ssg', group_all=False, **kwargs):
         """
