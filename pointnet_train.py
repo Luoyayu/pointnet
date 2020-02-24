@@ -87,6 +87,9 @@ model = get_pointnet2_model(
     if c.USE_V2 else \
     get_pointnet1_model(bn=c.APPLY_BN, bn_momentum=bn_momentum, name='pointnet1')
 
+model.build(input_shape=(c.BATCH_SIZE, c.NUM_POINT, 3))
+print(model.summary())
+
 # model = get_pointnet1_model(bn=c.APPLY_BN, bn_momentum=bn_momentum, name='pointnet_with_basic')
 optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
 classify_loss_fn = tf.losses.SparseCategoricalCrossentropy(from_logits=True)
