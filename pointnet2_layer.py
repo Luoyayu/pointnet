@@ -16,7 +16,14 @@ from cpp_shared_modules import (
 
 class PointNet_SA(Layer):
     def __init__(self, num_points, radius, samples, filters: list, use_xyz: bool = True,
-                 activation='relu', bn=True, bn_momentum=0.99, mode: str = 'basic', group_all=False, **kwargs):
+                 activation='relu', bn=True, bn_momentum=0.99, mode: str = 'ssg', group_all=False, **kwargs):
+        """
+        :param num_points:  fps 采样点数
+        :param radius: 局部邻域半径
+        :param samples: 局部邻域聚点数
+        :param filters: MLP滤波器个数
+        :param use_xyz: 是否使用xyz
+        """
         super().__init__(**kwargs)
         self.num_point = num_points
         self.radius = radius
@@ -29,16 +36,13 @@ class PointNet_SA(Layer):
         self.mode = mode
         self.mlps = []  # smlp list [[], [], []] or []
         self.group_all = group_all
-        if mode not in ['ssg', 'msg']:
-            NotImplementedError("mode must be 'ssg' or 'msg'")
+        assert mode in ['ssg', 'msg']
 
-    @tf.function
     def build(self, input_shape):
         if self.mode == 'ssg':
             for i, filter in enumerate(self.filters):
-                self.mlps.append(
-                    SMLP(filter, activation=self.activation, bn=self.bn, bn_momentum=self.bn_momentum))
-        else:
+                self.mlps.append(SMLP(filter, activation=self.activation, bn=self.bn, bn_momentum=self.bn_momentum))
+        elif self.mode == 'msg':
             for i, _ in enumerate(self.radius):
                 mlps = []
                 for filter in self.filters[i]:
@@ -48,14 +52,24 @@ class PointNet_SA(Layer):
 
     @tf.function
     def call(self, xyz, points, training=None, **kwargs):
+        """
+        :param xyz: BxAx3
+        :param points: BxAxC
+        :param training:
+        :return:
+            new_xyz: BxNx3
+            new_points: BxNxMLP[-1]
+        """
         if self.mode == 'ssg':
             new_xyz, new_points = \
                 sample_and_group_all(xyz, points, self.use_xyz) if self.group_all else \
                     sample_and_group(self.num_point, self.radius, self.samples, xyz, points, self.use_xyz)
+
             for mlp in self.mlps:
                 new_points = mlp(new_points, training=training)
-            new_points = tf.math.reduce_max(new_points, 2, keepdims=True)
-            return new_xyz, tf.squeeze(new_points)
+            new_points = tf.reduce_max(new_points, 2, keepdims=True, name='maxpool')
+            return new_xyz, tf.squeeze(new_points, [2])
+
         elif self.mode == 'msg':
             new_xyz = gather_point(xyz, farthest_point_sample(self.num_point, xyz))
             new_points_list = []
@@ -75,7 +89,7 @@ class PointNet_SA(Layer):
                 for mlp in self.mlps:
                     grouped_points = mlp(grouped_points, training=training)
 
-                new_points = tf.math.reduce_max(grouped_points, axis=2)
+                new_points = tf.reduce_max(grouped_points, axis=2)
                 new_points_list.append(new_points)
 
             new_points_concat = tf.concat(new_points_list, axis=-1)
