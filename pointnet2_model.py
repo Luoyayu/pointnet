@@ -37,22 +37,17 @@ class get_pointnet2_model(keras.Model):
             bn_momentum=self.bn_momentum, mode=self.mode, group_all=False, name='pointnet_sa_2')(
             xyz, points, training=training)
 
-        xyz, points = PointNet_SA(
+        _, points = PointNet_SA(
             npoint=None, radius=None, nsample=None, filters=[256, 512, 1024], activation='relu', bn=self.bn,
             bn_momentum=self.bn_momentum, group_all=True, mode='ssg', name='pointnet_sa_3')(
             xyz, points, training=training)
 
         x = tf.reshape(points, (self.batch_size, -1))
 
-        hidden_512 = Dropout(FC(512, activation='relu', bn=self.bn, bn_momentum=self.bn_momentum, name='hidden_512')(
-            x, training=training))
+        hidden_512 = Dropout(
+            FC(512, 'relu', bn=self.bn, bn_momentum=self.bn_momentum, name='hidden_512')(x, training=training))
         hidden_128 = Dropout(
-            FC(128, activation='relu', bn=self.bn, bn_momentum=self.bn_momentum, name='hidden_128')(
-                hidden_512,
-                training=training))
-        logits = Dropout(
-            FC(40, activation='softmax', bn=self.bn, bn_momentum=self.bn_momentum, name='output_logits')(
-                hidden_128,
-                training=training))
+            FC(128, 'relu', bn=self.bn, bn_momentum=self.bn_momentum, name='hidden_128')(hidden_512, training=training))
+        logits = FC(40, 'softmax', bn=False, name='output_logits')(hidden_128, training=training)
 
         return logits
