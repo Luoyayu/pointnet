@@ -50,6 +50,10 @@ class Conv2d(Layer):
         self.initializer = initializer
         self.bn = bn
         self.bn_momentum = bn_momentum
+        if type(activation) == str:
+            self.activation = keras.activations.get(activation)
+        if bn:
+            self.bn_fn = BatchNormalization(momentum=bn_momentum, fused=False)
 
     def build(self, input_shape):
 
