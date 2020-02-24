@@ -37,6 +37,44 @@ class SMLP(Layer):
         return x
 
 
+class Conv2d(Layer):
+
+    def __init__(self, filters, strides=(1, 1), activation=tf.nn.relu, padding='VALID', initializer='glorot_normal',
+                 bn=False, bn_momentum=0.99):
+        super(Conv2d, self).__init__()
+
+        self.filters = filters
+        self.strides = strides
+        self.activation = activation
+        self.padding = padding
+        self.initializer = initializer
+        self.bn = bn
+        self.bn_momentum = bn_momentum
+
+    def build(self, input_shape):
+
+        self.w = self.add_weight(
+            shape=(1, 1, input_shape[-1], self.filters),
+            initializer=self.initializer,
+            trainable=True,
+            name='pnet_conv'
+        )
+
+        if self.bn: self.bn_layer = BatchNormalization(momentum=self.bn_momentum)
+
+        super(Conv2d, self).build(input_shape)
+
+    def call(self, inputs, training=True):
+
+        points = tf.nn.conv2d(inputs, filters=self.w, strides=self.strides, padding=self.padding)
+
+        if self.bn: points = self.bn_layer(points, training=training)
+
+        if self.activation: points = self.activation(points)
+
+        return points
+
+
 class FC(Layer):
     def __init__(self, units, activation=None, bn=True, bn_momentum=0.99, **kwargs):
         super(FC, self).__init__(**kwargs)

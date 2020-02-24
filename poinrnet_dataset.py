@@ -23,7 +23,7 @@ if not os.path.exists(os.path.join(DATASET_DIR, 'modelnet40_ply_hdf5_2048')):
         cache_dir=CWD, cache_subdir="data")
 
 
-# load and sampling num_points from data
+# load and sampling npoint from data
 
 def load_hdf5(filepath: str, num_points: int, batch_size: int, training: bool) -> tf.data.Dataset:
     with h5py.File(filepath, mode='r') as f:

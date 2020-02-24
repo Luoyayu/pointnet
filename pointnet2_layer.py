@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Layer
-from common_layer import SMLP
+from common_layer import Conv2d
 from pointnet2_utils import sample_and_group_all, sample_and_group
 
 from cpp_shared_modules import (
@@ -15,19 +15,19 @@ from cpp_shared_modules import (
 # multi-scale grouping,  MSG
 
 class PointNet_SA(Layer):
-    def __init__(self, num_points, radius, samples, filters: list, use_xyz: bool = True,
+    def __init__(self, npoint, radius, nsample, filters: list, use_xyz: bool = True,
                  activation='relu', bn=True, bn_momentum=0.99, mode: str = 'ssg', group_all=False, **kwargs):
         """
-        :param num_points:  fps 采样点数
+        :param npoint:  fps 采样点数
         :param radius: 局部邻域半径
-        :param samples: 局部邻域聚点数
+        :param nsample: 局部邻域聚点数
         :param filters: MLP滤波器个数
         :param use_xyz: 是否使用xyz
         """
         super().__init__(**kwargs)
-        self.num_point = num_points
+        self.num_point = npoint
         self.radius = radius
-        self.samples = samples
+        self.samples = nsample
         self.filters = filters  # filters depth list
         self.use_xyz = use_xyz
         self.activation = activation
@@ -41,12 +41,12 @@ class PointNet_SA(Layer):
     def build(self, input_shape):
         if self.mode == 'ssg':
             for i, filter in enumerate(self.filters):
-                self.mlps.append(SMLP(filter, activation=self.activation, bn=self.bn, bn_momentum=self.bn_momentum))
+                self.mlps.append(Conv2d(filter, activation=self.activation, bn=self.bn, bn_momentum=self.bn_momentum))
         elif self.mode == 'msg':
             for i, _ in enumerate(self.radius):
                 mlps = []
                 for filter in self.filters[i]:
-                    mlps.append(SMLP(filter, activation=self.activation, bn=self.bn, bn_momentum=self.bn_momentum))
+                    mlps.append(Conv2d(filter, activation=self.activation, bn=self.bn, bn_momentum=self.bn_momentum))
                 self.mlps.append(mlps)
         super(PointNet_SA, self).build(input_shape)
 
