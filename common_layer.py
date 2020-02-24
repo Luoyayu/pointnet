@@ -40,7 +40,7 @@ class SMLP(Layer):
 class Conv2d(Layer):
 
     def __init__(self, filters, strides=(1, 1), activation=tf.nn.relu, padding='VALID', initializer='glorot_normal',
-                 bn=False, bn_momentum=0.99):
+                 bn=False):
         super(Conv2d, self).__init__()
 
         self.filters = filters
@@ -49,14 +49,10 @@ class Conv2d(Layer):
         self.padding = padding
         self.initializer = initializer
         self.bn = bn
-        self.bn_momentum = bn_momentum
         if type(activation) == str:
             self.activation = keras.activations.get(activation)
-        if bn:
-            self.bn_fn = BatchNormalization(momentum=bn_momentum, fused=False)
 
     def build(self, input_shape):
-
         self.w = self.add_weight(
             shape=(1, 1, input_shape[-1], self.filters),
             initializer=self.initializer,
@@ -64,7 +60,7 @@ class Conv2d(Layer):
             name='pnet_conv'
         )
 
-        if self.bn: self.bn_layer = BatchNormalization(momentum=self.bn_momentum)
+        if self.bn: self.bn_layer = BatchNormalization()
 
         super(Conv2d, self).build(input_shape)
 

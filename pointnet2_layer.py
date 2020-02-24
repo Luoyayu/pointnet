@@ -41,12 +41,12 @@ class PointNet_SA(Layer):
     def build(self, input_shape):
         if self.mode == 'ssg':
             for i, filter in enumerate(self.filters):
-                self.mlps.append(Conv2d(filter, activation=self.activation, bn=self.bn, bn_momentum=self.bn_momentum))
+                self.mlps.append(Conv2d(filter, activation=self.activation, bn=self.bn))
         elif self.mode == 'msg':
             for i, _ in enumerate(self.radius):
                 mlps = []
                 for filter in self.filters[i]:
-                    mlps.append(Conv2d(filter, activation=self.activation, bn=self.bn, bn_momentum=self.bn_momentum))
+                    mlps.append(Conv2d(filter, activation=self.activation, bn=self.bn))
                 self.mlps.append(mlps)
         super(PointNet_SA, self).build(input_shape)
 
