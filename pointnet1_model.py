@@ -65,14 +65,12 @@ def get_pointnet1_rbf(bn_momentum, bn: bool = True, nkernel=300, kernel='gau', *
 
     # Input transformer (B x N x 3 -> B x N x 3)
     point_cloud_transformed = TNet(bn_momentum=bn_momentum, use_bias=True, name='point_cloud_transformed')(pc)
-    print("point_cloud_transformed.shape=", point_cloud_transformed.shape)
 
     rbf_out = RBFGau(nkernel)(point_cloud_transformed)
-    print("rbf_out.shape=", rbf_out.shape)
 
     # Aggregate whole point to global feature (B x N x nkernel -> B x N)
     global_shape_desc = tf.reduce_max(rbf_out, axis=1)
-    print('global_shape_desc.shape=', global_shape_desc.shape)
+
     # FC layers to output k scores (B x N -> B x 40)
     hidden_512 = FC(512, 'relu', bn=bn, bn_momentum=bn_momentum)(global_shape_desc)
     hidden_512 = Dropout(rate=0.3)(hidden_512)

@@ -12,7 +12,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 class Config:
     def __init__(self):
         self.MAX_EPOCH: int = 251
-        self.BATCH_SIZE = 64
+        self.BATCH_SIZE = 32
         self.NUM_CLASSES = 40
         self.NUM_POINT = 1024
         self.MAX_NUM_POINT = 2048
