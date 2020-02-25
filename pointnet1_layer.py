@@ -65,14 +65,14 @@ class TNet(Layer):
         return tf.matmul(pc, x)
 
 
-class UrsaMin(Layer):
-    def __init__(self, m: int):
-        super(UrsaMin, self).__init__()
-        self.m = m
+class RBFMin(Layer):
+    def __init__(self, output_dim: int):
+        super(RBFMin, self).__init__()
+        self.output_dim = output_dim
 
     def build(self, input_shape):
         self.stars = self.add_weight(
-            shape=(self.m, input_shape[2]), initializer=keras.initializers.RandomUniform(minval=-1, maxval=1),
+            shape=(self.output_dim, input_shape[2]), initializer=keras.initializers.RandomUniform(minval=-1, maxval=1),
             trainable=True, name='stars')
 
     def call(self, inputs, **kwargs):
@@ -81,4 +81,58 @@ class UrsaMin(Layer):
         return dists
 
     def compute_output_shape(self, input_shape):
-        return input_shape[0], self.m
+        return input_shape[0], self.output_dim
+
+
+class MyUrsaGau(keras.layers.Layer):
+    def __init__(self, output_dim, sigma=0.1, **kwargs):
+        self.output_dim = output_dim
+        self.sigma = sigma
+        self.s = 1 / (2 * sigma * sigma)  # default = 50
+        super(MyUrsaGau, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        self.stars = self.add_weight(
+            name='stars',
+            shape=(self.output_dim, input_shape[2]),
+            initializer=keras.initializers.RandomUniform(minval=-1, maxval=1),
+            trainable=True)
+        super(MyUrsaGau, self).build(input_shape)
+
+    def call(self, inputs, **kwargs):
+        diff = inputs[:, None, :, :] - self.stars[None, :, None, :]
+        dists = K.sum(
+            K.exp(-self.s * K.sum(diff * diff, axis=3)),  # Gaussian RBF kernel
+            axis=2)  #
+        return dists
+
+    def compute_output_shape(self, input_shape):
+        return input_shape[0], self.output_dim
+
+
+class RBFGau(Layer):
+    def __init__(self, nkernel=300, **kwargs):
+        self.nkernel = nkernel
+
+        super().__init__(**kwargs)
+
+    def build(self, input_shape):
+        self.c = self.add_weight(
+            name='rbf_s', shape=(self.nkernel, input_shape[-1]),
+            initializer=keras.initializers.RandomUniform(minval=0.01, maxval=1),
+            trainable=True,
+        )
+
+        self.sigma = self.add_weight(
+            name="rbf_sigma", shape=(self.nkernel, 1),
+            initializer=keras.initializers.RandomUniform(minval=0.01, maxval=1),
+            trainable=True,
+        )
+
+    def call(self, inputs, training=None):
+        assert len(inputs.shape) == 3  # BxNx3
+        diff = inputs[:, None, :, :] - self.c[None, :, None, :]
+        # (None, 1, None, 3) - (1, 300, 1, 3) = (None, 300, None, 3)
+        # tf.reduce_sum(diff ** 2, axis=3).shape  # (None, 300, None)
+        g = tf.exp(-1 / (self.sigma ** 2) * tf.reduce_sum(diff ** 2, axis=3))  # g.shape= (None, 300, None)
+        return tf.transpose(g, [0, 2, 1])

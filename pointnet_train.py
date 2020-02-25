@@ -2,7 +2,7 @@ import os
 import sys
 import numpy as np
 import tensorflow as tf
-from pointnet1_model import get_pointnet1_model, get_pointnet1_ursa_model
+from pointnet1_model import get_pointnet1_model, get_pointnet1_ursa_model, get_pointnet1_rbf
 from poinrnet_dataset import load_hdf5, writer
 
 tf.random.set_seed(0)
@@ -36,6 +36,7 @@ class Config:
         self.TEST_FILES: list = []
 
         self.USE_WANDB = False
+        self.USE_RBF = True
 
     def load_dataset(self):
         train_files_path = os.path.join('data', 'modelnet40_ply_hdf5_2048', 'train_files.txt')
@@ -80,7 +81,9 @@ def get_decayed_bn_momentum(step: tf.constant):
 lr = tf.Variable(get_decayed_learning_rate(step=tf.constant(0)), trainable=False)
 bn_momentum = tf.Variable(get_decayed_bn_momentum(step=tf.constant(0)), trainable=False)
 
-model = get_pointnet1_model(bn=c.APPLY_BN, bn_momentum=bn_momentum, name='pointnet1')
+model = get_pointnet1_model(bn=c.APPLY_BN, bn_momentum=bn_momentum, name='pointnet1') if not c.USE_RBF else \
+    get_pointnet1_rbf(nkernel=300, bn=c.APPLY_BN, bn_momentum=bn_momentum, name='pointnet_rbf', kernel='gau')
+
 optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
 classify_loss_fn = tf.losses.SparseCategoricalCrossentropy(from_logits=True)
 

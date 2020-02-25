@@ -1,7 +1,7 @@
 import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras.layers import (Dropout, Input)
-from pointnet1_layer import TNet, UrsaMin
+from pointnet1_layer import TNet, RBFMin, RBFGau
 from common_layer import SMLP, FC
 
 
@@ -49,7 +49,7 @@ def get_pointnet1_model(bn_momentum, bn: bool = True, **kwargs):
 def get_pointnet1_ursa_model(bn_momentum, bn: bool = True, **kwargs):
     pc = Input(shape=(None, 3), dtype=tf.float32, name='point_cloud_input')  # BxNx3
 
-    x = UrsaMin(m=256)(pc)
+    x = RBFMin(output_dim=256)(pc)
     x = keras.activations.relu(x)
     x = keras.layers.BatchNormalization(momentum=bn_momentum)(x)
     x = FC(512, activation='relu', bn=bn, bn_momentum=bn_momentum, name='fc_512')(x)
@@ -60,13 +60,37 @@ def get_pointnet1_ursa_model(bn_momentum, bn: bool = True, **kwargs):
     return keras.Model(inputs=pc, outputs=logits, **kwargs)
 
 
+def get_pointnet1_rbf(bn_momentum, bn: bool = True, nkernel=300, kernel='gau', **kwargs):
+    pc = Input(shape=(None, 3), dtype=tf.float32, name='point_cloud_input')  # BxNx3
+
+    # Input transformer (B x N x 3 -> B x N x 3)
+    point_cloud_transformed = TNet(bn_momentum=bn_momentum, use_bias=True, name='point_cloud_transformed')(pc)
+    print("point_cloud_transformed.shape=", point_cloud_transformed.shape)
+
+    rbf_out = RBFGau(nkernel)(point_cloud_transformed)
+    print("rbf_out.shape=", rbf_out.shape)
+
+    # Aggregate whole point to global feature (B x N x nkernel -> B x N)
+    global_shape_desc = tf.reduce_max(rbf_out, axis=1)
+    print('global_shape_desc.shape=', global_shape_desc.shape)
+    # FC layers to output k scores (B x N -> B x 40)
+    hidden_512 = FC(512, 'relu', bn=bn, bn_momentum=bn_momentum)(global_shape_desc)
+    hidden_512 = Dropout(rate=0.3)(hidden_512)
+
+    hidden_256 = FC(256, 'relu', bn=bn, bn_momentum=bn_momentum)(hidden_512)
+    hidden_256 = Dropout(rate=0.3)(hidden_256)
+
+    logits = FC(40, None, bn=False, name='logits')(hidden_256)
+
+    return keras.Model(inputs=pc, outputs=logits, **kwargs)
+
+
 if __name__ == '__main__':
     inputs = tf.zeros((32, 1024, 3), dtype=tf.float32)
-    model = get_pointnet1_model(bn_momentum=0.99, bn=True)
-    outputs, pt = model(inputs)
+    model = get_pointnet1_rbf(nkernel=300, kernel='gau', bn_momentum=0.99, bn=True)
+    model.build(inputs.shape)
+    outputs = model(inputs, training=True)
 
     print(f"outputs.shape={outputs.shape}")
-    print(f"transformed point cloud shape={pt.shape}")
 
     assert outputs.get_shape().as_list() == [32, 40]
-    assert pt.get_shape().as_list() == inputs.get_shape().as_list()
