@@ -1,12 +1,15 @@
 import os
 import sys
+import time
+
 import numpy as np
 import tensorflow as tf
-from pointnet1_model import get_pointnet1_model, get_pointnet1_ursa_model, get_pointnet1_rbf
+from pointnet1_model import get_model_pointnet1
 from poinrnet_dataset import load_hdf5, writer
 
 tf.random.set_seed(0)
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+writer = tf.summary.create_file_writer("tflogs")
 
 
 class Config:
@@ -37,6 +40,9 @@ class Config:
 
         self.USE_WANDB = False
         self.USE_RBF = True
+        self.APPLY_STN = True
+        self.STN_Regularization = True
+        self.KEEP_PROB = 0.7
 
     def load_dataset(self):
         train_files_path = os.path.join('data', 'modelnet40_ply_hdf5_2048', 'train_files.txt')
@@ -83,10 +89,29 @@ bn_momentum = tf.Variable(get_decayed_bn_momentum(step=tf.constant(0)), trainabl
 
 if c.USE_RBF:
     c.BASE_LEARNING_RATE = 0.0002
-    model = get_pointnet1_rbf(nkernel=300, bn=c.APPLY_BN, bn_momentum=bn_momentum, name='pointnet_rbf', kernel='gau')
+    c.DECAY_STEP = 6000
+    c.BN_DECAY_DECAY_STEP = 6000
+    model = get_model_pointnet1(
+        num_points=c.NUM_POINT,
+        kernel='gau', nkernel=300, post_mlps=(16, 128, 1024),
+        bn_momentum=bn_momentum, bn=c.APPLY_BN,
+        STN=c.APPLY_STN, STN_Regularization=c.STN_Regularization,
+        keep_prob=c.KEEP_PROB,
+        name='pointnet1_rbf'
+    )
 else:
-
-    model = get_pointnet1_model(bn=c.APPLY_BN, bn_momentum=bn_momentum, name='pointnet1')
+    c.BASE_LEARNING_RATE = 0.001
+    c.DECAY_STEP = 7000
+    c.BN_DECAY_DECAY_STEP = 7000
+    model = get_model_pointnet1(
+        num_points=c.NUM_POINT,
+        kernel=None, nkernel=0, post_mlps=None,
+        bn_momentum=bn_momentum, bn=c.APPLY_BN,
+        STN=c.APPLY_STN, STN_Regularization=c.STN_Regularization,
+        keep_prob=c.KEEP_PROB,
+        name='pointnet1'
+    )
+print(model.summary())
 
 optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
 classify_loss_fn = tf.losses.SparseCategoricalCrossentropy(from_logits=True)
@@ -186,7 +211,9 @@ def val_step(point_cloud):
 
 
 def train():
+    train_st = time.time()
     for epoch in range(c.MAX_EPOCH):
+        epoch_st = time.time()
         print("===== Epoch: %03d =====" % epoch)
         with writer.as_default():
             tf.summary.scalar('train/lr', lr, step=epoch)
@@ -198,8 +225,8 @@ def train():
         bn_momentum.assign(get_decayed_bn_momentum(step=optimizer.iterations))
         eval_one_epoch()
 
-        if 0 == (epoch + 1) % 10:
-            model.save_weights("models/model-" + str(epoch) + "-" + str(optimizer.iterations.numpy()), save_format='tf')
+        model.save_weights("models/model-" + str(epoch) + "-" + str(optimizer.iterations.numpy()), save_format='tf')
+        print("cost:[%03d]s // total:[%03d]m" % (time.time() - epoch_st, (time.time() - train_st) / 60))
 
 
 c.load_dataset()
