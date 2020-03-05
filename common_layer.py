@@ -38,6 +38,18 @@ class SMLP(Layer):
             x = self.activation(x)
         return x
 
+    def get_config(self):
+        config = super(Layer, self).get_config()
+        config.update({
+            'filters': self.filters,
+            'activation': self.activation,
+            'kernel_size': self.kernel_size,
+            'strides': self.strides,
+            'padding': self.padding,
+            'bn': self.bn,
+            'initializer': self.initializer
+        })
+
 
 class FC(Layer):
     def __init__(self, units, activation=None, bn=True, bn_momentum=0.99, **kwargs):
@@ -60,3 +72,12 @@ class FC(Layer):
         if self.activation:
             x = self.activation(x)
         return x
+
+    def get_config(self):
+        config = super(Layer, self).get_config()
+        config.update({
+            'units': self.units,
+            'activation': self.activation,
+            'padding': self.padding,
+            'bn': self.bn,
+        })

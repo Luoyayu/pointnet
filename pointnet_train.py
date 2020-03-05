@@ -1,69 +1,25 @@
 import os
-import sys
 import time
 
 import numpy as np
 import tensorflow as tf
 from pointnet1_model import get_model_pointnet1
-from poinrnet_dataset import load_hdf5, writer
+from pointnet_dataset import load_hdf5
+from pointnet1_config import Config
 
 tf.random.set_seed(0)
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-writer = tf.summary.create_file_writer("tflogs")
-
-
-class Config:
-    def __init__(self):
-        self.MAX_EPOCH: int = 251
-        self.BATCH_SIZE = 32
-        self.NUM_CLASSES = 40
-        self.NUM_POINT = 1024
-        self.MAX_NUM_POINT = 2048
-
-        self.BASE_LEARNING_RATE = 0.001
-        self.LEARNING_RATE_CLIP = 1e-5
-        self.MOMENTUM = 0.99
-
-        self.OPTIMIZER: str = 'adam'
-
-        self.DECAY_STEP = 7000
-        self.DECAY_RATE = 0.7
-
-        self.APPLY_BN = True
-        self.BN_INIT_DECAY = 0.5
-        self.BN_DECAY_DECAY_RATE = 0.5
-        self.BN_DECAY_CLIP = 0.99
-        self.BN_DECAY_DECAY_STEP = 7000
-
-        self.TRAIN_FILES: list = []
-        self.TEST_FILES: list = []
-
-        self.USE_WANDB = False
-        self.USE_RBF = True
-        self.APPLY_STN = True
-        self.STN_Regularization = True
-        self.KEEP_PROB = 0.7
-
-    def load_dataset(self):
-        train_files_path = os.path.join('data', 'modelnet40_ply_hdf5_2048', 'train_files.txt')
-        if not os.path.exists(train_files_path):
-            sys.exit(f'not found {train_files_path}')
-        with open(train_files_path, 'r') as f:
-            self.TRAIN_FILES = [line.strip() for line in f]
-
-        test_files_path = os.path.join('data', 'modelnet40_ply_hdf5_2048', 'test_files.txt')
-        if not os.path.exists(test_files_path):
-            sys.exit(f'not found {test_files_path}')
-        with open(test_files_path, 'r') as f:
-            self.TEST_FILES = [line.strip() for line in f]
-
 
 c = Config()
 
-if c.USE_WANDB:
-    import wandb
-
-    wandb.config.update(c.__dict__)
+if c.KERNEL:
+    c.BASE_LEARNING_RATE = 0.001
+    c.DECAY_STEP = 7000
+    c.BN_DECAY_DECAY_STEP = 7000
+else:
+    c.BASE_LEARNING_RATE = 0.001
+    c.DECAY_STEP = 7000
+    c.BN_DECAY_DECAY_STEP = 7000
 
 decayed_learning_rate = tf.optimizers.schedules.ExponentialDecay(
     initial_learning_rate=c.BASE_LEARNING_RATE,
@@ -87,31 +43,25 @@ def get_decayed_bn_momentum(step: tf.constant):
 lr = tf.Variable(get_decayed_learning_rate(step=tf.constant(0)), trainable=False)
 bn_momentum = tf.Variable(get_decayed_bn_momentum(step=tf.constant(0)), trainable=False)
 
-if c.USE_RBF:
-    c.BASE_LEARNING_RATE = 0.0002
-    c.DECAY_STEP = 6000
-    c.BN_DECAY_DECAY_STEP = 6000
-    model = get_model_pointnet1(
-        num_points=c.NUM_POINT,
-        kernel='gau', nkernel=300, post_mlps=(16, 128, 1024),
-        bn_momentum=bn_momentum, bn=c.APPLY_BN,
-        STN=c.APPLY_STN, STN_Regularization=c.STN_Regularization,
-        keep_prob=c.KEEP_PROB,
-        name='pointnet1_rbf'
-    )
-else:
-    c.BASE_LEARNING_RATE = 0.001
-    c.DECAY_STEP = 7000
-    c.BN_DECAY_DECAY_STEP = 7000
-    model = get_model_pointnet1(
-        num_points=c.NUM_POINT,
-        kernel=None, nkernel=0, post_mlps=None,
-        bn_momentum=bn_momentum, bn=c.APPLY_BN,
-        STN=c.APPLY_STN, STN_Regularization=c.STN_Regularization,
-        keep_prob=c.KEEP_PROB,
-        name='pointnet1'
-    )
+model = get_model_pointnet1(
+    batch_size=c.BATCH_SIZE, num_points=c.NUM_POINT, num_classes=c.NUM_CLASSES,
+    activation=c.ACTIVATION, keep_prob=c.KEEP_PROB,
+
+    kernel=c.KERNEL, nkernel=c.NKERNEL, post_mlps=(16, 128, 1024),  # rbf
+    bn_momentum=bn_momentum, bn=c.APPLY_BN,
+    STN=c.APPLY_STN, STN_Regularization=c.STN_Regularization,
+
+    std_conv=c.with_std_conv,
+    name='pointnet1-%s-%d' % (c.KERNEL, c.NKERNEL)
+)
+
+if c.USE_WANDB:
+    import wandb
+
+    wandb.config.update(c.__dict__)
+
 print(model.summary())
+print(c.__dict__)
 
 optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
 classify_loss_fn = tf.losses.SparseCategoricalCrossentropy(from_logits=True)
@@ -123,7 +73,9 @@ def train_one_epoch():
 
     for fidx in range(len(c.TRAIN_FILES)):
         print("<train in %s>" % c.TRAIN_FILES[train_file_idxs[fidx]])
-        train_ds = load_hdf5(c.TRAIN_FILES[train_file_idxs[fidx]], c.NUM_POINT, c.BATCH_SIZE, training=True)
+        train_ds = load_hdf5(
+            filepath=c.TRAIN_FILES[train_file_idxs[fidx]], num_points=c.NUM_POINT,
+            batch_size=c.BATCH_SIZE, training=True, keep_rate=c.INPUT_KEEP_RATE)
 
         loss_sum = 0
         total_correct = 0
@@ -137,23 +89,22 @@ def train_one_epoch():
             label = tf.squeeze(label)
             correct = np.sum(pred == label, dtype=np.float32)
 
-            with writer.as_default():
+            with c.writer.as_default():
                 tf.summary.scalar('train/loss', train_loss, step=optimizer.iterations)
                 tf.summary.scalar('train/acc', correct / float(c.BATCH_SIZE), step=optimizer.iterations)
-                writer.flush()
+                c.writer.flush()
 
             total_correct += correct
-            total_seen += c.BATCH_SIZE
+            total_seen += len(label)
             loss_sum += train_loss
-
             num_batches += 1
         mean_loss = loss_sum / num_batches
         accuracy = total_correct / total_seen
 
-        with writer.as_default():
+        with c.writer.as_default():
             tf.summary.scalar("train/mean_loss", mean_loss, step=optimizer.iterations)
             tf.summary.scalar("train/mean_accuracy", accuracy, step=optimizer.iterations)
-            writer.flush()
+            c.writer.flush()
 
         print('train mean loss', mean_loss.numpy())
         print('train accuracy', accuracy)
@@ -165,10 +116,11 @@ def eval_one_epoch():
     total_seen_class = [0 for _ in range(c.NUM_CLASSES)]
     total_correct_class = [0 for _ in range(c.NUM_CLASSES)]
 
-    for test_file in c.TEST_FILES:
-        test_ds = load_hdf5(test_file, c.NUM_POINT, c.BATCH_SIZE, training=False)
+    for val_file in c.TEST_FILES:
+        val_file = load_hdf5(
+            filepath=val_file, num_points=c.NUM_POINT, batch_size=c.BATCH_SIZE, training=False, keep_rate=1.0)
 
-        for feature, label in test_ds:
+        for feature, label in val_file:
             logits = val_step(point_cloud=feature)
 
             pred_val = tf.math.argmax(logits, axis=1)
@@ -176,7 +128,7 @@ def eval_one_epoch():
             correct = np.sum(pred_val == label)
 
             total_correct += correct
-            total_seen += c.BATCH_SIZE
+            total_seen += len(label)
 
             for i in range(label.shape[0]):
                 l = label[i]
@@ -186,10 +138,10 @@ def eval_one_epoch():
     mean_accuracy = total_correct / float(total_seen)
     avg_class_acc = np.mean(np.array(total_correct_class) / np.array(total_seen_class, dtype=np.float))
 
-    with writer.as_default():
+    with c.writer.as_default():
         tf.summary.scalar("val/mean_accuracy", mean_accuracy, step=optimizer.iterations)
         tf.summary.scalar("val/avg_class_acc", avg_class_acc, step=optimizer.iterations)
-        writer.flush()
+        c.writer.flush()
 
     print('val mean accuracy', mean_accuracy)
     print('val avg class acc', avg_class_acc)
@@ -215,18 +167,17 @@ def train():
     for epoch in range(c.MAX_EPOCH):
         epoch_st = time.time()
         print("===== Epoch: %03d =====" % epoch)
-        with writer.as_default():
+        with c.writer.as_default():
             tf.summary.scalar('train/lr', lr, step=epoch)
             tf.summary.scalar('train/bn_momentum', bn_momentum, step=epoch)
-            writer.flush()
+            c.writer.flush()
 
         train_one_epoch()
         lr.assign(get_decayed_learning_rate(step=optimizer.iterations))
         bn_momentum.assign(get_decayed_bn_momentum(step=optimizer.iterations))
         eval_one_epoch()
-
         model.save_weights("models/model-" + str(epoch) + "-" + str(optimizer.iterations.numpy()), save_format='tf')
-        print("cost:[%03d]s // total:[%03d]m" % (time.time() - epoch_st, (time.time() - train_st) / 60))
+        print("cost:[%03d]s // total:[%.2f]m" % (time.time() - epoch_st, (time.time() - train_st) / 60.0))
 
 
 c.load_dataset()

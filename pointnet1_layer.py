@@ -8,16 +8,16 @@ from common_layer import SMLP, FC
 
 
 class TNet(Layer):
-    def __init__(self, add_regularization=False, bn_momentum=0.99, use_bias=True, **kwargs):
+    def __init__(self, add_regularization=False, bn_momentum=0.99, use_bias=True, activation='relu', **kwargs):
         super(TNet, self).__init__(**kwargs)
         self.add_regularization = add_regularization
         self.bn_momentum = bn_momentum
         self.use_bias = use_bias
-        self.smlp1 = SMLP(64, 'relu', bn_momentum=bn_momentum)
-        self.mlp2 = SMLP(128, 'relu', bn_momentum=bn_momentum)
-        self.mlp3 = SMLP(1024, 'relu', bn_momentum=bn_momentum)
-        self.fc2 = FC(512, activation='relu', bn=True, bn_momentum=bn_momentum)
-        self.fc2 = FC(256, activation='relu', bn=True, bn_momentum=bn_momentum)
+        self.mlp1 = SMLP(64, activation, bn_momentum=bn_momentum)
+        self.mlp2 = SMLP(128, activation, bn_momentum=bn_momentum)
+        self.mlp3 = SMLP(1024, activation, bn_momentum=bn_momentum)
+        self.fc1 = FC(512, activation=activation, bn=True, bn_momentum=bn_momentum)
+        self.fc2 = FC(256, activation=activation, bn=True, bn_momentum=bn_momentum)
 
     def build(self, input_shape):
         self.K = input_shape[-1]
@@ -33,18 +33,18 @@ class TNet(Layer):
         pc = x  # B x N x K
 
         x = tf.expand_dims(pc, axis=2)  # B x N x 1 x K
-        x = self.smlp1(x, training=training)
-        x = self.mlp2(x, training=training)
-        x = self.mlp3(x, training=training)
+        x = self.mlp1(x, training=training)  # B x N x 1 x 64
+        x = self.mlp2(x, training=training)  # B x N x 1 x 128
+        x = self.mlp3(x, training=training)  # B x N x 1 x 1024
 
         x = tf.squeeze(x, axis=2)  # B x N x 1024
 
         # Global features
         # B x 1024
-        x = tf.reduce_max(x, axis=1)
+        x = tf.reduce_max(x, axis=1)  # B x N
 
         # Fully-connected layers
-        x = self.fc2(x, training=training)  # B x 512
+        x = self.fc1(x, training=training)  # B x 512
         x = self.fc2(x, training=training)  # B x 256
 
         x = tf.expand_dims(x, axis=1)  # B x 1 x 256
@@ -64,12 +64,21 @@ class TNet(Layer):
 
         return tf.matmul(pc, x)
 
+    def get_config(self):
+        config = super(TNet, self).get_config()
+        config.update({
+            'add_regularization': self.add_regularization,
+            'use_bias': self.use_bias,
+        })
+
 
 class RBFlayer(Layer):
-    def __init__(self, nkernel=300, kernel='gau', **kwargs):
+    def __init__(self, nkernel=300, kernel='gau', relation: int = 1, **kwargs):
         self.nkernel = nkernel
         self.kernel = kernel
-        assert self.kernel in ['gau', 'min']
+        self.relation = relation
+        assert relation in [1, 2]  # 0: (rbf); 1: (rbf, input);
+        assert self.kernel in ['gau', 'min', '']  # 高斯核, 线性核, 无
         super().__init__(**kwargs)
 
     def build(self, input_shape):
@@ -77,7 +86,7 @@ class RBFlayer(Layer):
             name='rbf_c', shape=(self.nkernel, input_shape[-1]),
             initializer=keras.initializers.RandomUniform(minval=0.01, maxval=1),
             trainable=True,
-        )  # rbf kernel location
+        )  # rbf kernel location (x,y,z)
 
         if self.kernel == 'gau':
             self.sigma = self.add_weight(
@@ -87,13 +96,30 @@ class RBFlayer(Layer):
             )  # rbf kernel width for gua
 
     def call(self, inputs, training=None):
-        assert len(inputs.shape) == 3  # B x N x 3
+        # assert len(inputs.shape) == 3  # B x N x 3
+        g = inputs
+        # (1, 300, 1, 3) - (32, 1, 1024, 3) = (B, M, N, 3)
+        diff = self.c[None, :, None, :] - inputs[:, None, :, :]  # rbf kernel active for N points
+
         if self.kernel == 'gau':
-            diff = self.c[None, :, None, :] - inputs[:, None, :, :]  # rbf kernel active for N points
-            # (1, 300, 1, 3) - (32, 1, 1024, 3) = (32, 300, 1024, 3)
             # tf.reduce_sum(diff ** 2, axis=3).shape  # (32, 300, 1024)
-            g = tf.exp(-1 / (self.sigma ** 2) * tf.reduce_sum(diff ** 2, axis=3))  # (32, 300, 1024)
-            return g
+            g = tf.exp(-1 / (self.sigma ** 2) * tf.reduce_sum(diff ** 2, axis=3))  # (B, M, N)
         elif self.kernel == 'min':
-            diff = self.c[None, :, None, :] - inputs[:, None, :, :]  # rbf kernel active for N points
-            return K.min(tf.norm(diff, axis=3), axis=2, keepdims=True)  # (32, 300, 1)
+            g = K.min(tf.norm(diff, axis=3), axis=2, keepdims=True)
+
+        cg = tf.transpose(g, [0, 2, 1])  # (B, N, M)
+        if self.relation == 1:
+            # return only rbf
+            pass
+        elif self.relation == 2:
+            # return (rbf, inputs)
+            cg = tf.concat([inputs, cg], axis=-1)
+        return cg  # (B x N x M)
+
+    def get_config(self):
+        config = super(RBFlayer, self).get_config()
+        config.update({
+            'nkernel': self.nkernel,
+            'kernel': self.kernel,
+            'relation': self.relation,
+        })
